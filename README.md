@@ -2,11 +2,21 @@
 
 Ask is a Deno CLI for pinging GPT-3 and iterating with chain of thought prompting and other prompt engineering tricks.
 
+![image](https://user-images.githubusercontent.com/6764957/199749592-fd252e21-0da3-4c31-8497-ee17d37e803f.png)
+
+But it can also iterate on prompts:
+
+![image](https://user-images.githubusercontent.com/6764957/199750459-83968ede-539b-4508-9535-98cfdc40b245.png)
+
+And then it runs them in parallel for you to choose:
+
+![image](https://user-images.githubusercontent.com/6764957/199750666-0a1489b6-8bea-4657-8b16-329c06e1e03e.png)
+
 ## Install instructions
 
 We use [`deno compile`](https://deno.land/manual@v1.27.0/tools/compiler) to ship a dedicated executable for each system architecture.
 
-See the Releases page to download the appropriate binaries.
+See [the Releases page](https://github.com/sw-yx/ask-cli/releases) to download the appropriate binaries.
 
 > If you know what you're doing, you may also just run from source locally, see Local Dev below
 
@@ -28,6 +38,12 @@ ask "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
 By default you get a panel of options, but you can always exit with Ctrl+C.
 
 The real power of this CLI comes from chaining prompts. You can run candidate prompts in parallel and choose prompts based on the responses.
+
+![image](https://user-images.githubusercontent.com/6764957/199750459-83968ede-539b-4508-9535-98cfdc40b245.png)
+
+And then it runs them in parallel for you to choose:
+
+![image](https://user-images.githubusercontent.com/6764957/199750666-0a1489b6-8bea-4657-8b16-329c06e1e03e.png)
 
 ## Local Dev
 
