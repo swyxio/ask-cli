@@ -1,0 +1,17 @@
+{
+  "name": "askcli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "deno compile --unstable --allow-read --allow-write --allow-net --allow-env --allow-run --output builds/askcli index.ts",
+    "build-all": "npm run build-linux && npm run build-macx86 && npm run build-macm1 && npm run build-windows",
+    "build-linux": "deno compile --unstable --allow-read --allow-write --allow-net --allow-env --allow-run --target x86_64-unknown-linux-gnu --output builds/askcli-linux index.ts",
+    "build-windows": "deno compile --unstable --allow-read --allow-write --allow-net --allow-env --allow-run --target x86_64-pc-windows-msvc --output builds/askcli-windows.exe index.ts",
+    "build-macx86": "deno compile --unstable --allow-read --allow-write --allow-net --allow-env --allow-run --target x86_64-apple-darwin --output builds/askcli-macx86 index.ts",
+    "build-macm1": "deno compile --unstable --allow-read --allow-write --allow-net --allow-env --allow-run --target aarch64-apple-darwin --output builds/askcli-m1 index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
