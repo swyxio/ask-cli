@@ -2,6 +2,7 @@ import {
   Command,
   EnumType,
 } from "https://deno.land/x/cliffy@v0.25.4/command/mod.ts";
+import { promptAugmentors, Augmentor } from "./promptAugmentors.ts";
 import { Input } from "https://deno.land/x/cliffy@v0.25.4/prompt/input.ts";
 import { Checkbox } from "https://deno.land/x/cliffy@v0.25.4/prompt/checkbox.ts";
 import { Select } from "https://deno.land/x/cliffy@v0.25.4/prompt/select.ts";
@@ -11,6 +12,7 @@ import { colors } from "https://deno.land/x/cliffy@v0.25.4/ansi/mod.ts";
 // import { Aes } from "https://deno.land/x/crypto/aes.ts";
 // import { Cbc, Padding } from "https://deno.land/x/crypto/block-modes.ts";
 
+let basePrompt = "";
 const currentPrompt = colors.bold.blue;
 const showNext = colors.bold.yellow;
 const system = colors.bold.cyan;
@@ -44,33 +46,102 @@ await new Command()
       console.log({ options });
       console.log(system("End debug mode."));
     }
+    async function pingGPT3(
+      prompt: string,
+      openaiApiKey: string,
+      gpt3options: Object
+    ) {
+      if (options.debug) console.log("log pingGPT3", { prompt });
+      const res = await fetch("https://api.openai.com/v1/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          // defaults
+          model: "text-davinci-002",
+          max_tokens: 256,
+          temperature: 0.3,
+          top_p: 0.9,
+          n: 1,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+          stop: ["```output"],
+          // override defaults
+          ...gpt3options,
+        }),
+      });
+      let x = await res.json();
+      x = x.choices[0].text.trim();
+      // https://replit.com/@amasad/gptpy?v=1#main.py
+      if (options.debug) {
+        console.log("------GPT3 response------------");
+        console.log(x);
+        console.log("------GPT3 response------------");
+      }
+      if (x.startsWith("```javascript")) {
+        const code = x.slice(13, -3);
+        // https://stackoverflow.com/questions/46417440/how-to-get-console-log-output-from-eval
+        const str = `
+        (function() {
+          console.oldLog = console.log;
+          let output = "";
+          console.log = function(value){
+              output += value
+          };
+          ${code}
+          console.log = console.oldLog;
+          return output.trim();
+        }())
+        `;
+        const result = eval(str);
+        x = `Eval Answer: ${result}`;
+        // let response = await exec(code, {output: OutputMode.Capture});
+      }
+      return x;
+    }
+    basePrompt = args[0];
+    const promptStack = [] as Augmentor[];
+    let nextPrompt = null as Augmentor | null;
+    function compilePrompt(pStack: Augmentor[], candidate: Augmentor) {
+      let result = "";
+      result += candidate.prefix ?? "";
+      for (const augmentor of pStack) {
+        result += augmentor.prefix ?? "";
+      }
+      result += basePrompt;
+      for (const augmentor of pStack) {
+        result += augmentor.postfix ?? "";
+      }
+      result += candidate.postfix ?? "";
+      return result;
+    }
 
-    const promptAugmentors = ["Let's think step by step."];
-    const promptStack = [args[0]];
-    let nextPrompt = "------";
-
-    console.log(currentPrompt(promptStack[0]));
+    console.log(currentPrompt(basePrompt));
     while (true) {
       if (options.debug) {
         console.log("start cycle", { promptStack, nextPrompt });
       }
-      let body = await pingGPT3(
-        promptStack.concat(nextPrompt).join("/n"),
+      nextPrompt = nextPrompt ?? { postfix: "" };
+      const answer = await pingGPT3(
+        compilePrompt(promptStack, nextPrompt),
         options.openaiApiKey,
         {}
       );
-      if (options.debug) console.log("log1", { body });
-      // await Deno.stdout.write(new TextEncoder().encode(body.choices[0].text));
-      nextPrompt = body.choices[0].text.trim().trim();
-      if (nextPrompt === "") {
+      if (options.debug) console.log("log1", { answer });
+      if (answer === "") {
         console.log(
           system(
             "GPT3 returned an empty string. We reached a stop sequence. Pop the stack or Ctrl+C exit."
           )
         );
       } else {
-        console.log("GPT3 response: " + showNext(nextPrompt));
+        console.log(showNext("GPT3 response: "));
+        console.log(answer);
       }
+      console.log("\n\n ---------- \n\n");
       const choices: string[] = await Checkbox.prompt({
         message: "What do you want to do with this response?",
         options: [
@@ -85,8 +156,8 @@ await new Command()
           Checkbox.separator("---Run Prompt candidates in Parallel!-----"),
           { name: "Display progress so far", value: "$display" },
           { name: "Rewrite current prompt", value: "$rewrite" },
-          ...promptAugmentors.map((augmentor) => {
-            return { name: `Add "${augmentor}"`, value: augmentor };
+          ...Object.entries(promptAugmentors).map(([augName, augData]) => {
+            return { name: `Add "${augName.trim()}"`, value: augName };
           }),
         ],
       });
@@ -95,13 +166,17 @@ await new Command()
       }
       if (choices.includes("$display")) {
         console.log(system("---- Prompt Progress: ----"));
-        console.log(promptStack.join("/n"));
-        console.log(showNext(nextPrompt));
-        console.log(system("---- End of progprint ----"));
+        console.log(currentPrompt(basePrompt));
+        console.log(showNext("prompt Stack:"));
+        console.log(promptStack.join("\n"));
+        console.log(showNext("current candidate:"));
+        console.log(JSON.stringify(nextPrompt));
+        console.log(system("---- End of Progress Print ----"));
+        console.log(" ");
       }
       if (choices.includes("$back")) {
         if (promptStack.length > 1) {
-          nextPrompt = promptStack.pop() || "";
+          nextPrompt = promptStack.pop() || {};
           continue; // next iteration
         } else {
           console.log(system("Can't go back any further."));
@@ -118,6 +193,7 @@ await new Command()
         choices.map(async (choice) => {
           let value;
           let rewriteMsg = "";
+          let augData = {} as Augmentor;
           if (choice === "$rewrite") {
             console.log(system(`[extra info needed for rewriting prompt]`));
             rewriteMsg = await Input.prompt({
@@ -125,25 +201,26 @@ await new Command()
                 "What do you want to rewrite the prompt to? (press up for suggestion)",
               minLength: 1,
               // info: true,
-              suggestions: [nextPrompt],
+              suggestions: [answer],
             });
+            augData = { postfix: rewriteMsg } as Augmentor;
             value = await pingGPT3(
-              promptStack.concat(rewriteMsg).join("/n"),
+              compilePrompt(promptStack, augData),
               options.openaiApiKey,
               {}
             );
-            value = value.choices[0].text.trim();
-          } else if (promptAugmentors.includes(choice)) {
+          } else if (choice in promptAugmentors) {
+            augData = promptAugmentors[choice as keyof typeof promptAugmentors];
             value = await pingGPT3(
-              promptStack.concat(choice).join("/n"),
+              compilePrompt(promptStack, augData),
               options.openaiApiKey,
               {}
             );
-            value = value.choices[0].text.trim();
           }
           return {
             name: choice === "$rewrite" ? rewriteMsg : choice,
             value: value,
+            augData,
           };
         })
       );
@@ -158,11 +235,12 @@ await new Command()
           );
         }
         console.log(currentPrompt(values[0].value));
-        nextPrompt = values[0].value;
+        nextPrompt = values[0].augData;
       } else {
         values.push({
           name: "accept current candidate without rewrite",
-          value: nextPrompt,
+          value: answer,
+          augData: { postfix: answer },
         });
         if (options.debug) console.log("table", { values });
         // const table: Table =
@@ -175,14 +253,13 @@ await new Command()
           .border(true)
           .render();
 
-        // console.log(table.toString());
-        const value = await Select.prompt({
+        const selectedCandidate = await Select.prompt({
           message: "Pick a candidate you like to add onto the prompt stack.",
           options: values,
         });
-        console.log(showNext(value));
-        if (options.debug) console.log("log3", { value });
-        nextPrompt = value;
+        console.log(showNext(selectedCandidate));
+        if (options.debug) console.log("log3", { selectedCandidate });
+        nextPrompt = values.find((x) => x.value === selectedCandidate)!.augData;
       }
     }
   })
@@ -193,33 +270,6 @@ await new Command()
   // .action((options, ...args) => localStorage.clear())
   .parse(Deno.args);
 
-async function pingGPT3(
-  prompt: string,
-  openaiApiKey: string,
-  gpt3options: Object
-) {
-  const res = await fetch("https://api.openai.com/v1/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      prompt: prompt,
-      // defaults
-      model: "text-davinci-002",
-      max_tokens: 256,
-      temperature: 0.9,
-      top_p: 1,
-      n: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-      // override defaults
-      ...gpt3options,
-    }),
-  });
-  return res.json();
-}
 
 // // cant do these yet https://github.com/denoland/deno/issues/10693
 // function encryptAndSaveKey(apikey: string) {

@@ -37,3 +37,11 @@ Then, you can either:
 
 - `deno run -A index.ts "how do i sample from a normal distribution from scratch in python?"` for local dev
 - `npm run build && ./builds/askcli "Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?"` to do a production build
+
+Debugging:
+
+```bash
+deno run --inspect-brk  -A index.ts -d "How many of the integers between 0 and 99 inclusive are divisible by 8?"
+```
+
+and then open `chrome://inspect`, open the directory in devtools and put in breakpoints.
