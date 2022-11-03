@@ -23,7 +23,7 @@ const te = new TextEncoder();
 // const iv = new Uint8Array(16);
 
 await new Command()
-  .name("askcli")
+  .name("ask")
   .version("0.0.1")
   .description(
     "Ask CLI is a command line tool for pinging GPT3 in the command line."
@@ -34,10 +34,10 @@ await new Command()
     required: true,
   })
   .option("-d, --debug", "Enable debug output.")
-  .option("-k, --key <key:string>", "Set OpenAI API key.")
-  .option("-l, --log-level <level:log-level>", "Set log level.", {
-    default: "info" as const,
-  })
+  // .option("-k, --key <key:string>", "Set OpenAI API key.")
+  // .option("-l, --log-level <level:log-level>", "Set log level.", {
+  //   default: "info" as const,
+  // })
   .arguments("<prompt:string>")
   // .arguments("<input:string> [output:string]")
   .action(async (options, ...args) => {
@@ -83,6 +83,9 @@ await new Command()
       }
       if (x.startsWith("```javascript")) {
         const code = x.slice(13, -3);
+        console.log("------Executing...------------");
+        console.log(code);
+        console.log("------Done!-------------------");
         // https://stackoverflow.com/questions/46417440/how-to-get-console-log-output-from-eval
         const str = `
         (function() {
@@ -141,10 +144,16 @@ await new Command()
         console.log(showNext("GPT3 response: "));
         console.log(answer);
       }
-      console.log("\n\n ---------- \n\n");
+      console.log("\n ---------- \n");
       const choices: string[] = await Checkbox.prompt({
         message: "What do you want to do with this response?",
         options: [
+          Checkbox.separator("---Run Prompt candidates in Parallel!-----"),
+          { name: "Display progress so far", value: "$display" },
+          { name: "Rewrite current prompt", value: "$rewrite" },
+          ...Object.entries(promptAugmentors).map(([augName, augData]) => {
+            return { name: `Add "${augName.trim()}"`, value: augName };
+          }),
           Checkbox.separator(
             "---Interrupts (choosing one of these overrides all others). Use Ctrl+C to exit-----"
           ),
@@ -153,12 +162,6 @@ await new Command()
             name: "Add to prompt stack, get GPT3 to continue",
             value: "$continue",
           },
-          Checkbox.separator("---Run Prompt candidates in Parallel!-----"),
-          { name: "Display progress so far", value: "$display" },
-          { name: "Rewrite current prompt", value: "$rewrite" },
-          ...Object.entries(promptAugmentors).map(([augName, augData]) => {
-            return { name: `Add "${augName.trim()}"`, value: augName };
-          }),
         ],
       });
       if (choices.length === 0) {
