@@ -1,6 +1,6 @@
 # ask CLI
 
-Ask is a Deno CLI for pinging GPT-3 and iterating with chain of thought prompting and other prompt engineering tricks.
+Ask is a Deno CLI for pinging GPT-3 and iterating with chain of thought prompting and [other prompt engineering tricks](https://github.com/sw-yx/prompt-eng/blob/main/GPT.md).
 
 > Inspired by [Linus' prototype](https://twitter.com/thesephist/status/1587593832002072576) (his impl [here](https://gist.github.com/thesephist/28786aa80ac6e26241116c5ed2be97ca))
 
